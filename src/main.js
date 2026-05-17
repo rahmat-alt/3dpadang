@@ -12,6 +12,11 @@ import { ScenegraphLayer } from "@deck.gl/mesh-layers";
 const modelUrl = "/mesjid2.glb";
 
 // ======================
+// API KEY MAPTILER
+// ======================
+const API_KEY = "E8z3IYkizwky7wsmfdrU";
+
+// ======================
 // HTML
 // ======================
 document.querySelector("#app").innerHTML = `
@@ -29,9 +34,9 @@ const map = new maplibregl.Map({
 
     sources: {
       // ======================
-      // SATELLITE BASEMAP
+      // SATELLITE
       // ======================
-      carto: {
+      satellite: {
         type: "raster",
 
         tiles: [
@@ -39,35 +44,28 @@ const map = new maplibregl.Map({
         ],
 
         tileSize: 256,
-
-        attribution: "Esri World Imagery",
       },
 
       // ======================
-      // VECTOR TILE BUILDINGS
+      // MAPTILER VECTOR
       // ======================
-      openmaptiles: {
+      maptiler: {
         type: "vector",
 
-        tiles: [
-          "https://tiles.stadiamaps.com/data/openmaptiles/{z}/{x}/{y}.pbf",
-        ],
-
-        minzoom: 0,
-        maxzoom: 14,
+        url: `https://api.maptiler.com/tiles/v3/tiles.json?key=${API_KEY}`,
       },
     },
 
     layers: [
       // ======================
-      // BASEMAP
+      // SATELLITE
       // ======================
       {
-        id: "carto-layer",
+        id: "satellite",
 
         type: "raster",
 
-        source: "carto",
+        source: "satellite",
       },
 
       // ======================
@@ -78,46 +76,31 @@ const map = new maplibregl.Map({
 
         type: "fill-extrusion",
 
-        source: "openmaptiles",
+        source: "maptiler",
 
         "source-layer": "building",
 
         minzoom: 14,
 
         paint: {
-          // ======================
-          // WARNA GEDUNG
-          // ======================
-          "fill-extrusion-color": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
+          "fill-extrusion-color": "#4b4b35",
 
-            14,
-            "#3b3b2a",
-
-            18,
-            "#4b4b35",
+          "fill-extrusion-height": [
+            "coalesce",
+            ["get", "render_height"],
+            ["get", "height"],
+            10,
           ],
 
-          // ======================
-          // TINGGI GEDUNG
-          // ======================
-          "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8],
+          "fill-extrusion-base": [
+            "coalesce",
+            ["get", "render_min_height"],
+            ["get", "min_height"],
+            0,
+          ],
 
-          // ======================
-          // DASAR GEDUNG
-          // ======================
-          "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+          "fill-extrusion-opacity": 0.9,
 
-          // ======================
-          // OPACITY
-          // ======================
-          "fill-extrusion-opacity": 0.95,
-
-          // ======================
-          // GRADIENT
-          // ======================
           "fill-extrusion-vertical-gradient": true,
         },
       },
@@ -136,7 +119,7 @@ const map = new maplibregl.Map({
 });
 
 // ======================
-// CONTROL NAVIGATION
+// NAVIGATION
 // ======================
 map.addControl(
   new maplibregl.NavigationControl({
@@ -146,19 +129,16 @@ map.addControl(
 );
 
 // ======================
-// ENABLE ROTATE
+// ROTATE
 // ======================
 map.dragRotate.enable();
 
 map.touchZoomRotate.enableRotation();
 
-// ======================
-// MAX PITCH
-// ======================
 map.setMaxPitch(85);
 
 // ======================
-// ATMOSPHERE / FOG
+// FOG
 // ======================
 map.on("style.load", () => {
   map.setFog({
@@ -180,7 +160,7 @@ const data = [
 ];
 
 // ======================
-// DECKGL OVERLAY
+// DECKGL
 // ======================
 const overlay = new MapboxOverlay({
   interleaved: true,
@@ -195,24 +175,12 @@ const overlay = new MapboxOverlay({
 
       getPosition: (d) => d.position,
 
-      // ======================
-      // ROTASI MODEL
-      // ======================
       getOrientation: () => [0, 0, 90],
 
-      // ======================
-      // POSISI MODEL
-      // ======================
       getTranslation: () => [-50, 180, -30],
 
-      // ======================
-      // UKURAN MODEL
-      // ======================
       sizeScale: 1.15,
 
-      // ======================
-      // LIGHTING
-      // ======================
       _lighting: "pbr",
 
       pickable: true,

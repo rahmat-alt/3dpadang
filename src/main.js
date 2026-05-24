@@ -17,11 +17,10 @@ const modelUrl = "/mesjid2.glb";
 const API_KEY = "E8z3IYkizwky7wsmfdrU";
 
 // ======================
-// HTML
+// GEE TILE URL
 // ======================
-document.querySelector("#app").innerHTML = `
-  <div id="map"></div>
-`;
+const GEE_TILE =
+  "https://earthengine.googleapis.com/v1/projects/maps-testing-464609/maps/36dc22f5a55fe9cbc215229e539c77b8-83c0975274f9beadaf2205f42db52457/tiles/{z}/{x}/{y}";
 
 // ======================
 // MAP
@@ -83,7 +82,7 @@ const map = new maplibregl.Map({
         minzoom: 14,
 
         paint: {
-          "fill-extrusion-color": "#4b4b35",
+          "fill-extrusion-color": "#F6E7C1",
 
           "fill-extrusion-height": [
             "coalesce",
@@ -189,17 +188,237 @@ const overlay = new MapboxOverlay({
 });
 
 // ======================
+// STATUS NDBI
+// ======================
+let ndbiVisible = false;
+
+// ======================
 // LOAD
 // ======================
 map.on("load", () => {
+  // ======================
+  // GEE SOURCE
+  // ======================
+  map.addSource("ndbi", {
+    type: "raster",
+
+    tiles: [GEE_TILE],
+
+    tileSize: 256,
+  });
+
+  // ======================
+  // GEE LAYER
+  // ======================
+  map.addLayer({
+    id: "ndbi-layer",
+
+    type: "raster",
+
+    source: "ndbi",
+
+    layout: {
+      visibility: "none",
+    },
+
+    paint: {
+      "raster-opacity": 0.7,
+    },
+  });
+
+  // ======================
+  // DECKGL
+  // ======================
   map.addControl(overlay);
+
+  // ======================
+  // LOAD GEE JSON
+  // ======================
+  loadGeeStats();
 
   console.log("MAP & MODEL LOADED");
 });
+
+// ======================
+// LOAD JSON GEE
+// ======================
+// ======================
+// LOAD JSON GEE
+// ======================
+async function loadGeeStats() {
+  try {
+    const response = await fetch("/ndbi.geojson");
+
+    const data = await response.json();
+
+    console.log("FULL GEOJSON:", data);
+
+    // ======================
+    // AMBIL PROPERTIES
+    // ======================
+    const stats = data.features[0].properties;
+
+    console.log("STATS:", stats);
+
+    // ======================
+    // UPDATE TEXT
+    // ======================
+    document.getElementById("minValue").innerText = Number(stats.min).toFixed(
+      2,
+    );
+
+    document.getElementById("maxValue").innerText = Number(stats.max).toFixed(
+      2,
+    );
+
+    document.getElementById("meanValue").innerText = Number(stats.mean).toFixed(
+      2,
+    );
+
+    document.getElementById("stdValue").innerText = Number(stats.std).toFixed(
+      2,
+    );
+
+    // ======================
+    // HISTOGRAM
+    // ======================
+    const histogramData = stats.histogram.map(Number);
+
+    console.log("HISTOGRAM:", histogramData);
+
+    createHistogram(histogramData);
+
+    console.log("GEE JSON LOADED");
+  } catch (err) {
+    console.log("GAGAL LOAD JSON:", err);
+  }
+}
+
+// ======================
+// HISTOGRAM
+// ======================
+// ======================
+// HISTOGRAM
+// ======================
+function createHistogram(values = []) {
+  const histogram = document.getElementById("histogram");
+
+  histogram.innerHTML = "";
+
+  // ======================
+  // MAX VALUE
+  // ======================
+  const maxValue = Math.max(...values);
+
+  values.forEach((v, i) => {
+    const bar = document.createElement("div");
+
+    // ======================
+    // NORMALISASI HEIGHT
+    // ======================
+    const height = (v / maxValue) * 120;
+
+    bar.style.width = "12px";
+
+    bar.style.height = `${height}px`;
+
+    bar.style.borderRadius = "4px";
+
+    bar.style.display = "inline-block";
+
+    // ======================
+    // WARNA
+    // ======================
+    if (i < 4) {
+      bar.style.background = "#053061";
+    } else if (i < 8) {
+      bar.style.background = "#2166ac";
+    } else if (i < 12) {
+      bar.style.background = "#4393c3";
+    } else if (i < 12) {
+      bar.style.background = "#f4a582'";
+    } else {
+      bar.style.background = "#b2182b";
+    }
+
+    histogram.appendChild(bar);
+  });
+}
+
+// ======================
+// TOGGLE BUTTON
+// ======================
+document.getElementById("toggleNDBI").addEventListener("click", () => {
+  ndbiVisible = !ndbiVisible;
+
+  // ======================
+  // NDBI SHOW / HIDE
+  // ======================
+  map.setLayoutProperty(
+    "ndbi-layer",
+    "visibility",
+    ndbiVisible ? "visible" : "none",
+  );
+
+  // ======================
+  // BUILDING 3D
+  // ======================
+  map.setLayoutProperty(
+    "3d-buildings",
+    "visibility",
+    ndbiVisible ? "none" : "visible",
+  );
+
+  // ======================
+  // BUTTON TEXT
+  // ======================
+  document.getElementById("toggleNDBI").innerText = ndbiVisible
+    ? "Sembunyikan Kerapatan Bangunan"
+    : "Tampilkan Kerapatan Bangunan";
+});
+
+// ======================
+// OPACITY CONTROL
+// ======================
+const opacitySlider = document.getElementById("opacitySlider");
+
+const opacityValue = document.getElementById("opacityValue");
+
+opacitySlider.addEventListener("input", (e) => {
+  const value = Number(e.target.value) / 100;
+
+  opacityValue.innerText = `${e.target.value}%`;
+
+  map.setPaintProperty("ndbi-layer", "raster-opacity", value);
+});
+
+// ======================
+// AUTO REFRESH
+// refresh tiap 2 bulan
+// ======================
+setInterval(
+  () => {
+    loadGeeStats();
+
+    map.triggerRepaint();
+
+    console.log("NDBI UPDATED");
+  },
+  1000 * 60 * 60 * 24 * 60,
+);
 
 // ======================
 // ERROR
 // ======================
 map.on("error", (e) => {
   console.log("MAP ERROR:", e.error);
+});
+
+// ====================== MOBILE PANEL TOGGLE ======================
+document.getElementById("btnOpenPanel").addEventListener("click", () => {
+  document.getElementById("panel").classList.add("open");
+});
+
+document.getElementById("btnClosePanel").addEventListener("click", () => {
+  document.getElementById("panel").classList.remove("open");
 });
